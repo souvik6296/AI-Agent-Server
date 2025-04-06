@@ -24,7 +24,7 @@ def listen_command():
 
 
 
-API_KEY1 = "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"
+API_KEY1 = "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"
 
 
 # client = OpenAI(
