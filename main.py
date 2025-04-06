@@ -32,7 +32,10 @@ client = OpenAI(
   api_key=API_KEY1,
 )
 
-
+client._custom_headers = {
+    "HTTP-Referer": "https://your-app-url.vercel.app",  # Required
+    "X-Title": "AI Agent Scheduler",  # Optional but recommended
+}
 
 switch = {
     "table_exists": table_exists,
