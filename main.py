@@ -40,7 +40,7 @@ API_KEY1 = "sk-or-v1-4821589a0cabb0b22c5128b30c4daf5845d9f4373577448307e2ed18eff
 
 # API headers
 HEADERS = {
-    "Authorization": f"Bearer {API_KEY}",
+    "Authorization": f"Bearer {API_KEY1}",
     "HTTP-Referer": "https://ai-agent-scheduler-server.vercel.app",  # Required
     "X-Title": "AI Agent Scheduler",  # Optional
     "Content-Type": "application/json"
