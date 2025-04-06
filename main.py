@@ -269,10 +269,10 @@ def clean_ai_response(raw_response):
 
 app = Flask(__name__)
 CORS(app)
-
 @app.route('/chat', methods=['POST'])
 def chat_endpoint():
     try:
+        # Validate request
         data = request.get_json()
         if not data or 'usermsg' not in data:
             return jsonify({"error": "Invalid request format"}), 400
@@ -282,61 +282,135 @@ def chat_endpoint():
         message.append({"role": "user", "content": json.dumps(query)})
 
         while True:
+            raw_response = None  # Initialize to avoid reference errors
             try:
+                # Prepare API request
                 payload = {
                     "model": "gpt-4o-mini",
                     "messages": message,
-                    "response_format": "json"
+                    "response_format": {"type": "json_object"}  # Fixed format
                 }
 
+                # Make API call with timeout
                 response = httpx.post(
                     "https://openrouter.ai/api/v1/chat/completions",
-                    headers=HEADERS,
-                    json=payload
+                    headers={
+                        "Authorization": f"Bearer {API_KEY1}",
+                        "Content-Type": "application/json"
+                    },
+                    json=payload,
+                    timeout=30.0
                 )
 
-                if response.status_code != 200:
+                # Handle API errors
+                if response.status_code == 401:
+                    return jsonify({
+                        "error": "Authentication failed",
+                        "details": "Invalid API key or permissions"
+                    }), 401
+                elif response.status_code != 200:
                     return jsonify({
                         "error": "OpenRouter API error",
                         "status_code": response.status_code,
-                        "details": response.text
-                    }), 500
+                        "details": response.text[:200]  # Limit error message size
+                    }), 502  # Bad Gateway
 
+                # Process response
                 data = response.json()
-
                 if not data.get("choices"):
                     return jsonify({"error": "Empty response from AI"}), 500
 
                 raw_response = data["choices"][0]["message"]["content"]
                 print("Raw Response:", raw_response)
 
-                raw_response = re.sub(r'^```json|```$', '', raw_response, flags=re.IGNORECASE)
+                # Clean and parse response
+                cleaned_response = re.sub(r'^```json|```$', '', raw_response, flags=re.IGNORECASE).strip()
+                try:
+                    response_json = json.loads(cleaned_response)
+                except json.JSONDecodeError:
+                    # Fallback to original if cleaning fails
+                    response_json = json.loads(raw_response)
 
-                response_json = json.loads(raw_response)
+                # Validate response structure
+                if not isinstance(response_json, dict) or "type" not in response_json:
+                    return jsonify({
+                        "error": "Invalid AI response format",
+                        "details": "Missing required 'type' field",
+                        "response": raw_response
+                    }), 500
+
                 message.append({"role": "assistant", "content": json.dumps(response_json)})
 
+                # Handle response types
                 if response_json.get("type") == "output":
                     return jsonify({
                         "response": response_json.get("output"),
                         "status": "complete"
                     })
+                
                 elif response_json.get("type") == "action":
-                    func = switch.get(response_json.get("function"))
+                    func_name = response_json.get("function")
+                    func = switch.get(func_name)
                     if not func:
-                        return jsonify({"error": f"Unknown function: {response_json.get('function')}"}), 400
-                    observation = func(response_json.get("input"))
-                    obs = {"type": "observation", "observation": observation}
-                    message.append({"role": "developer", "content": json.dumps(obs)})
+                        return jsonify({
+                            "error": "Unknown function",
+                            "function": func_name,
+                            "available_functions": list(switch.keys())
+                        }), 400
 
+                    # Handle function input
+                    func_input = response_json.get("input")
+                    if isinstance(func_input, str):
+                        try:
+                            if func_input.strip().startswith(('{', '[')):
+                                func_input = json.loads(func_input)
+                        except json.JSONDecodeError:
+                            pass
+
+                    try:
+                        observation = func(func_input)
+                        obs = {
+                            "type": "observation",
+                            "observation": str(observation)  # Ensure serializable
+                        }
+                        message.append({"role": "developer", "content": json.dumps(obs)})
+                    except Exception as func_error:
+                        return jsonify({
+                            "error": "Function execution failed",
+                            "function": func_name,
+                            "details": str(func_error)
+                        }), 500
+
+                else:
+                    return jsonify({
+                        "error": "Unknown response type",
+                        "type": response_json.get("type")
+                    }), 500
+
+            except httpx.TimeoutException:
+                return jsonify({
+                    "error": "API request timeout",
+                    "details": "The AI service took too long to respond"
+                }), 504
+            except json.JSONDecodeError as e:
+                return jsonify({
+                    "error": "Invalid JSON response",
+                    "details": str(e),
+                    "raw_response": raw_response[:200] if raw_response else None
+                }), 500
             except Exception as e:
                 return jsonify({
-                    "error": "Failed to parse AI response",
+                    "error": "Processing error",
                     "details": str(e),
-                    "raw_response": raw_response
+                    "raw_response": raw_response[:200] if raw_response else None
                 }), 500
 
     except Exception as e:
-        return jsonify({"error": "Server error", "details": str(e)}), 500
+        return jsonify({
+            "error": "Server error",
+            "details": str(e)
+        }), 500
+
 
 if __name__ == '__main__':
     app.run(port=7000)
