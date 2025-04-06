@@ -31,7 +31,7 @@ client = OpenAI(
   base_url="https://openrouter.ai/api/v1",
   api_key=API_KEY1,
     default_headers={
-        "HTTP-Referer": "https://your-app-url.vercel.app",  # Required
+        "HTTP-Referer": "https://ai-agent-scheduler-server.vercel.app",  # Required
         "X-Title": "AI Agent Scheduler",                        # Optional but recommended
     }
 )
