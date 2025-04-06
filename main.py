@@ -27,15 +27,24 @@ def listen_command():
 API_KEY1 = "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"
 
 
-client = OpenAI(
-  base_url="https://openrouter.ai/api/v1",
-  api_key=API_KEY1,
-    default_headers={
-        "HTTP-Referer": "https://ai-agent-scheduler-server.vercel.app",  # Required
-        "X-Title": "AI Agent Scheduler",                        # Optional but recommended
-    }
-)
+# client = OpenAI(
+#   base_url="https://openrouter.ai/api/v1",
+#   api_key=API_KEY1,
+#     default_headers={
+#         "HTTP-Referer": "https://ai-agent-scheduler-server.vercel.app",  # Required
+#         "X-Title": "AI Agent Scheduler",                        # Optional but recommended
+#     }
+# )
 
+
+
+# API headers
+HEADERS = {
+    "Authorization": f"Bearer {API_KEY}",
+    "HTTP-Referer": "https://ai-agent-scheduler-server.vercel.app",  # Required
+    "X-Title": "AI Agent Scheduler",  # Optional
+    "Content-Type": "application/json"
+}
 
 
 switch = {
@@ -260,66 +269,74 @@ def clean_ai_response(raw_response):
 
 app = Flask(__name__)
 CORS(app)
+
 @app.route('/chat', methods=['POST'])
 def chat_endpoint():
     try:
         data = request.get_json()
         if not data or 'usermsg' not in data:
             return jsonify({"error": "Invalid request format"}), 400
-            
+
         usermsg = data.get('usermsg', '')
         query = {"type": "user", "user": usermsg}
         message.append({"role": "user", "content": json.dumps(query)})
-        
+
         while True:
             try:
-                completion = client.chat.completions.create(
-                    extra_headers={
-                        "HTTP-Referer": "https://ai-agent-scheduler-server.vercel.app",  # Required
-                        "X-Title": "AI Agent Scheduler",                        # Optional but recommended
-                    },
-                    model="gpt-4o-mini",
-                    messages=message,
-                    response_format={"type": "json_object"}
-                )
-                
-                if not completion or not completion.choices:
-                    return jsonify({"error": "Empty response from AI"}), 500
-                    
-                raw_response = completion.choices[0].message.content
-                print("Raw Response:", raw_response)  # Debug logging
-                
-                raw_response = re.sub(r'^```json|```$', '', raw_response, flags=re.IGNORECASE)
-                print(raw_response)
+                payload = {
+                    "model": "gpt-4o-mini",
+                    "messages": message,
+                    "response_format": "json"
+                }
 
-                
-                response = json.loads(raw_response)
-                message.append({"role": "assistant", "content": json.dumps(response)})
-                
-                if response.get("type") == "output":
+                response = httpx.post(
+                    "https://openrouter.ai/api/v1/chat/completions",
+                    headers=HEADERS,
+                    json=payload
+                )
+
+                if response.status_code != 200:
                     return jsonify({
-                        "response": response.get("output"),
+                        "error": "OpenRouter API error",
+                        "status_code": response.status_code,
+                        "details": response.text
+                    }), 500
+
+                data = response.json()
+
+                if not data.get("choices"):
+                    return jsonify({"error": "Empty response from AI"}), 500
+
+                raw_response = data["choices"][0]["message"]["content"]
+                print("Raw Response:", raw_response)
+
+                raw_response = re.sub(r'^```json|```$', '', raw_response, flags=re.IGNORECASE)
+
+                response_json = json.loads(raw_response)
+                message.append({"role": "assistant", "content": json.dumps(response_json)})
+
+                if response_json.get("type") == "output":
+                    return jsonify({
+                        "response": response_json.get("output"),
                         "status": "complete"
                     })
-                elif response.get("type") == "action":
-                    func = switch.get(response.get("function"))
+                elif response_json.get("type") == "action":
+                    func = switch.get(response_json.get("function"))
                     if not func:
-                        return jsonify({"error": f"Unknown function: {response.get('function')}"}), 400
-                    observation = func(response.get("input"))
+                        return jsonify({"error": f"Unknown function: {response_json.get('function')}"}), 400
+                    observation = func(response_json.get("input"))
                     obs = {"type": "observation", "observation": observation}
                     message.append({"role": "developer", "content": json.dumps(obs)})
 
-                    
             except Exception as e:
                 return jsonify({
                     "error": "Failed to parse AI response",
                     "details": str(e),
                     "raw_response": raw_response
                 }), 500
-            except Exception as e:
-                return jsonify({"error": "AI service error", "details": str(e)}), 503
-                
+
     except Exception as e:
         return jsonify({"error": "Server error", "details": str(e)}), 500
+
 if __name__ == '__main__':
     app.run(port=7000)
