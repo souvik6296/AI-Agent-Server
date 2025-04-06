@@ -30,12 +30,13 @@ API_KEY1 = "sk-or-v1-4821589a0cabb0b22c5128b30c4daf5845d9f4373577448307e2ed18eff
 client = OpenAI(
   base_url="https://openrouter.ai/api/v1",
   api_key=API_KEY1,
+    default_headers={
+        "HTTP-Referer": "https://your-app-url.vercel.app",  # Required
+        "X-Title": "AI Agent Scheduler",                        # Optional but recommended
+    }
 )
 
-client._custom_headers = {
-    "HTTP-Referer": "https://your-app-url.vercel.app",  # Required
-    "X-Title": "AI Agent Scheduler",  # Optional but recommended
-}
+
 
 switch = {
     "table_exists": table_exists,
