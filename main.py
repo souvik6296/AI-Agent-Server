@@ -5,6 +5,7 @@ from database import *
 from flask import Flask, request, jsonify
 from flask_cors import CORS  # Import CORS
 import json
+import httpx
 
 def listen_command():
     recognizer = sr.Recognizer()
