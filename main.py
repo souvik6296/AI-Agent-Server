@@ -277,7 +277,7 @@ def chat_endpoint():
                     extra_headers={
                         "HTTP-Referer": "https://ai-agent-scheduler-server.vercel.app",  # Required
                         "X-Title": "AI Agent Scheduler",                        # Optional but recommended
-                    }
+                    },
                     model="gpt-4o-mini",
                     messages=message,
                     response_format={"type": "json_object"}
