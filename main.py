@@ -230,7 +230,7 @@ CORS(app)
 
 @app.route('/', methods=['GET'])
 def home():
-    return jsonify({"message": "Hello, world!"})
+    return jsonify({"message": "Hello, world1!"})
 
 
 @app.route('/chat', methods=['POST'])
