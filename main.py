@@ -10,7 +10,7 @@ import json
 
 
 
-API_KEY1 = "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"
+API_KEY1 = "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"
 
 
 try:
