@@ -6,20 +6,6 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS  # Import CORS
 import json
 
-def listen_command():
-    recognizer = sr.Recognizer()
-    with sr.Microphone() as source:
-        print("Listening...")
-        recognizer.adjust_for_ambient_noise(source)
-        audio = recognizer.listen(source)
-
-    try:
-        command = recognizer.recognize_whisper(audio)  # Using Whisper for better accuracy
-        print(f"You said: {command}")
-        return command.lower()
-    except sr.UnknownValueError:
-        print("Sorry, I could not understand.")
-        return None
 
 
 
@@ -240,6 +226,11 @@ import re
 
 app = Flask(__name__)
 CORS(app)
+
+
+@app.route('/', methods=['GET'])
+def home():
+    return jsonify({"message": "Hello, world!"})
 
 
 @app.route('/chat', methods=['POST'])
