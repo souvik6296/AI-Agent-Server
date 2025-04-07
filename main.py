@@ -10,7 +10,7 @@ import json
 
 
 
-API_KEY1 = "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"
+API_KEY1 = "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"
 
 
 try:
@@ -230,7 +230,7 @@ CORS(app)
 
 @app.route('/', methods=['GET'])
 def home():
-    return jsonify({"message": "Hello, world1!"})
+    return jsonify({"message": "Hello, world2!"})
 
 
 @app.route('/chat', methods=['POST'])
